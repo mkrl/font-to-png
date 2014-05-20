@@ -40,7 +40,8 @@ To use the program, you need the TTF file for a font icon. The default is Font
 Awesome, which is available in
 [Font Awesome Github repository](https://github.com/FortAwesome/Font-Awesome).
 
-The following Python libraries are needed:
+The following Python libraries are needed (install them by running
+"pip install -r requirements.txt"):
 * Pillow (or the Python Imaging Library)
 * tinycss (optional: only needed if you are using the --css option)
 
