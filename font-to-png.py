@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 #
-# font-awesome-to-png.py
+# font-to-png.py
 #
-# Exports Font Awesome icons as PNG images.
+# Exports icon fonts as PNG images.
 #
 # Copyright (c) 2012-2014 Michal Wojciechowski (http://odyniec.net/)
 #
@@ -29,7 +29,7 @@ else:
     def uchr(x):
         return chr(x)
 
-# Mapping of icon names to character codes
+# Mapping of font awesome icon names to character codes
 icons = {
     "adjust": u("\uf042"),
     "adn": u("\uf170"),
@@ -459,7 +459,7 @@ class ListUpdateAction(argparse.Action):
         exit(0)
 
 
-def export_icon(icon, size, filename, font, color):
+def export_icon(icon, size, filename, font, color, xy):
     image = Image.new("RGBA", (size, size), color=(0,0,0,0))
 
     draw = ImageDraw.Draw(image)
@@ -470,8 +470,9 @@ def export_icon(icon, size, filename, font, color):
     # Determine the dimensions of the icon
     width,height = draw.textsize(icons[icon], font=font)
 
-    draw.text(((size - width) / 2, (size - height) / 2), icons[icon],
-            font=font, fill=color)
+    xy = ((size - width) / 2 if xy[0] is None else xy[0],
+          (size - height) / 2 if xy[1] is None else xy[1])
+    draw.text(xy, icons[icon], font=font, fill=color)
 
     # Get bounding box
     bbox = image.getbbox()
@@ -491,18 +492,14 @@ def export_icon(icon, size, filename, font, color):
     bg.save(filename)
 
 
-class LoadCSSAction(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        global icons
-        icons = LoadCSSAction._load_css(values)
-
-    @staticmethod
-    def _load_css(filename):
+class LoadCSSAction():
+    def __init__(self, filename, font_class_prefix):
         import tinycss
+        global icons
         new_icons = {}
         parser = tinycss.make_parser("page3")
         stylesheet = parser.parse_stylesheet_file(filename)
-        is_icon = re.compile(u("\.fa-(.*):before,?"))
+        is_icon = re.compile(u("\.%s(.*):before,?" % font_class_prefix))
         for rule in stylesheet.rules:
             selector = rule.selector.as_css()
             for match in is_icon.finditer(selector):
@@ -512,13 +509,20 @@ class LoadCSSAction(argparse.Action):
                         val = declaration.value.as_css()
                         if val.startswith('"') and val.endswith('"'):
                             val = val[1:-1]
-                        new_icons[name] = uchr(int(val[1:], 16))
-        return new_icons
+                        try:
+                            new_icons[name] = uchr(int(val[1:], 16))
+                        except UnicodeEncodeError:
+                            new_icons[name] = val[1:]
+                        except ValueError:
+                            new_icons[name] = u(val[1:])
+                        except:
+                            pass
+        icons = new_icons
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-            description="Exports Font Awesome icons as PNG images.")
+            description="Exports icon fonts as PNG images.")
 
     parser.add_argument("icon", type=str, nargs="+",
             help="The name(s) of the icon(s) to export (or \"ALL\" for all icons)")
@@ -529,7 +533,9 @@ if __name__ == '__main__':
             "all files are exported, it is used as a prefix.")
     parser.add_argument("--font", type=str, default="fontawesome-webfont.ttf",
             help="Font file to use (default: fontawesome-webfont.ttf)")
-    parser.add_argument("--css", type=str, default="", action=LoadCSSAction,
+    parser.add_argument("--font-class-prefix", type=str, default="fa-",
+            help="The prefix of the CSS font class (default: fa-)")
+    parser.add_argument("--css", type=str, default="",
             help="Path to the CSS file defining icon names (instead of the " +
             "predefined list)")
     parser.add_argument("--list", nargs=0, action=ListAction,
@@ -538,12 +544,21 @@ if __name__ == '__main__':
             help=argparse.SUPPRESS)
     parser.add_argument("--size", type=int, default=16,
             help="Icon size in pixels (default: 16)")
+    parser.add_argument("--x", type=int, default=None,
+            help="x offset of the font image")
+    parser.add_argument("--y", type=int, default=None,
+            help="y offset of the font image")
 
     args = parser.parse_args()
     icon = args.icon
     size = args.size
     font = args.font
+    css = args.css
     color = args.color
+    xy = (args.x, args.y)
+    
+    if css:
+        LoadCSSAction(css, args.font_class_prefix)
 
     if args.font:
         if not path.isfile(args.font) or not access(args.font, R_OK):
@@ -583,4 +598,4 @@ if __name__ == '__main__':
         print("Exporting icon \"%s\" as %s (%ix%i pixels)" %
                 (icon, filename, size, size))
 
-        export_icon(icon, size, filename, font, color)
+        export_icon(icon, size, filename, font, color, xy)
