@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# font-to-png.py
+# font.py
 #
 # Exports icon fonts as PNG images.
 #
